@@ -8,26 +8,28 @@ what's next). This file covers conventions for working in the repo.
 
 ## Project layout
 
-parts/        # build123d modules — one per physical part
+3d-parts/     # build123d modules — one per physical part
 spec/         # (not yet created) upper layer: UTM spec → parts manifest
 tests/        # (not yet created) trimesh-based geometry sanity checks
 build/        # generated STLs, gitignored
 docs/HANDOFF.md
 
-The parts/spec seam is the only place SOLID-style abstraction is wanted. Don't introduce
-class hierarchies or interfaces inside `parts/` — geometry code stays flat and procedural.
+The 3d-parts/spec seam is the only place SOLID-style abstraction is wanted. Don't
+introduce class hierarchies or interfaces inside `3d-parts/` — geometry code stays flat
+and procedural.
 
 ## Per-part conventions
 
-Every module in `parts/` follows the same shape (see `parts/tape_cell.py` as the reference):
+Every module in `3d-parts/` follows the same shape (see `3d-parts/slider_cell.py` as the
+reference):
 
 - A frozen-ish `XConfig` dataclass exposing every dimension as a field with a default.
 - A `make_x(cfg: XConfig = XConfig()) -> build123d.Part` function. No globals, no
   module-level state, no I/O at import time.
 - A `__main__` block that constructs with defaults, exports an STL to `/tmp/`, and prints
   a short summary. Keep this — it's the one-liner smoke test.
-- Coordinate convention: +Z is the part's primary axis. Document the convention at the
-  top of the file when it matters (see tape_cell.py docstring).
+- Coordinate convention: document axes at the top of the file. The cell uses +X for
+  slider travel, +Y along the tape axis, +Z vertical.
 
 When adding a new part, mirror this structure exactly. Don't invent a new pattern.
 
@@ -40,7 +42,7 @@ When adding a new part, mirror this structure exactly. Don't invent a new patter
 - STL is the primary output; STEP is optional.
 - No GUI here — the user views STLs at viewstl.com or 3dviewer.net.
 
-Run a part module directly to regenerate its STL: `python parts/tape_cell.py`.
+Run a part module directly to regenerate its STL: `python 3d-parts/slider_cell.py`.
 
 ## Mechanical engineering hygiene
 
@@ -49,15 +51,21 @@ Run a part module directly to regenerate its STL: `python parts/tape_cell.py`.
   stress, gear ratios) rather than assuming it's shared knowledge.
 - FDM clearance rule of thumb: ~0.4 mm on slip fits, ~0.2 mm on press fits. State the
   assumption in the config comment when you pick one.
-- The three load-bearing geometric interfaces are: cell↔post, segment↔segment, gantry↔rail.
-  Changes that touch tolerances on these must be called out — they're the contracts that
-  break the machine if violated.
+- The three load-bearing geometric interfaces are: cell housing↔slider, segment↔segment,
+  gantry↔rail. Changes that touch tolerances on these must be called out — they're the
+  contracts that break the machine if violated.
 
 ## STL artifacts
 
 Engraved `Text` features can produce microscopic self-intersections (broken faces) at
 glyph edges. Slicers handle this silently; trimesh will flag it. If you need a perfectly
-clean STL, set `label_depth_mm=0` to skip engraving. Don't chase these defects otherwise.
+clean STL, set the relevant `label_depth_mm` to 0 to skip engraving. Don't chase these
+defects otherwise.
+
+Print-in-place parts (e.g. the cell housing+slider) rely on the slicer treating
+clearance gaps as separations between independent bodies. trimesh's watertight check
+will report "non-watertight" because the assembly is two solids with air between them;
+this is correct, not a defect.
 
 ## Hard scope: print-only, crank-driven
 
