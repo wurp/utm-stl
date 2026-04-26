@@ -81,28 +81,22 @@ mechanism.
 ## Documentation style
 
 Project docs (`VISION.md`, `HANDOFF.md`, `CLAUDE.md`, anything in `docs/`) are
-greenfield reference documents, not a record of conversations or design history.
-Write each section as a standalone description of the current state of the project.
+greenfield reference documents. Each section is a standalone description of
+the current state of the project, readable cold by someone who has never seen
+a prior version.
 
-- Do not define content by contrast to a removed or prior version. Phrases like
-  "no longer", "now ... not just", "instead of (the old approach)", "off the
-  table", "rejected alternative", "fundamentally unsolved", "biggest open
-  problem" all reveal that the doc is reacting to an earlier draft. State the
-  current rule directly.
-- Do not reference what was removed or what was once proposed. A reader who
-  picks up the doc cold should not be able to tell which sentences are
-  edits-in-response-to-feedback vs. original content.
-- Forward-looking exceptions and constraints are fine when they describe the
-  rule itself ("the crank may be hand- or motor-driven"), not when they
-  catalogue past discussion.
-- Meta-ranking ("highest-priority", "top billing", "biggest unsolved") usually
-  encodes a conversational emphasis. Prefer concrete reasons ("this constrains
-  gantry geometry, so resolve it before drafting the gantry").
-
-When updating a doc in response to feedback, rewrite the affected sections as
-if writing them from scratch given the current understanding. Apply this
-greenfield rewrite even when the user's request is phrased as "change X to Y" —
-the resulting prose should not betray that X was ever there.
+- State each rule directly. Describe what the design *is*, not what it isn't,
+  and not what it once was.
+- Scope boundaries and forward-looking exceptions are part of the rule itself
+  and belong in the doc ("the crank accepts a hand grip or a motor coupling at
+  the same interface"). Catalogues of alternatives that were considered and
+  set aside do not.
+- Justify priority with concrete consequences ("this constrains gantry
+  geometry, so resolve it before drafting the gantry"), not with meta-ranking
+  ("highest-priority", "biggest unsolved").
+- When a request is phrased as "change X to Y", produce prose that reads as if
+  Y were the original design. The diff captures the change; the doc captures
+  the result.
 
 ## Workflow notes
 

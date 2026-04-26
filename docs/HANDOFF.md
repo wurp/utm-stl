@@ -10,22 +10,24 @@ Output is a set of STL files plus build documentation. The whole machine is full
 
 The ratio of crank turns to transitions is a mechanism-design choice, not a fixed contract. Different transitions may take different amounts of cranking. The mechanism may sequence read → lookup → write → move → state-update across many revolutions, and across a variable number of revolutions per transition.
 
-## Why Rogozhin (4,6) and not smaller
+## Why Rogozhin (4,6)
 
-Rogozhin (4,6) is the smallest known *standard* UTM — finite input, halts on completion, universal in the conventional Turing-Davis sense. Wolfram's (2,3) was rejected: only weakly universal (Smith 2007 / Margenstern 2010), requires an infinite non-periodic tape pre-filled before run, and never halts. Bad fit for a physical demo where "load program, run, read result" is the operator's mental model.
+Rogozhin (4,6) is the smallest known *standard* UTM — finite input, halts on completion, universal in the conventional Turing-Davis sense. That matches the operator's mental model for a physical demo: load program, run, read result.
 
-(4,6) does mean a long tape — the machine simulates 2-tag systems, programs grow fast, plan for dozens of cells minimum. So tape modularity is a primary design driver.
+Smaller weakly-universal machines (e.g. Wolfram (2,3), proven universal by Smith 2007 / Margenstern 2010) require an infinite non-periodic tape pre-filled before the run and never halt, so they don't fit that model.
+
+(4,6) does mean a long tape — the machine simulates 2-tag systems, programs grow fast, plan for dozens of cells minimum. The tape is modular for this reason: chain segments to the length the program needs.
 
 ## Tooling
 
-- **build123d** (Python, OpenCASCADE B-rep) for all parametric parts. Picked over OpenSCAD because we want real Python (types, modules, tests) and over CadQuery because build123d is the cleaner-API successor.
+- **build123d** (Python, OpenCASCADE B-rep) for all parametric parts.
 - Output: STL for printing, optionally STEP for CAD interop.
 - Validation: trimesh in the same Python env for sanity checks (volume, bounds, cross-sections, watertight check, center of mass).
 - Viewing: viewstl.com or 3dviewer.net (drag-and-drop, no install) for the human; Claude Code has no GUI.
 
 ## Code architecture
 
-Two layers, with the seam being the only place SOLID-style abstraction earns its keep (SOLID was overapplied earlier — it's a software idea, partially relevant to code that *generates* parts, not to the parts themselves).
+Two layers, with the parts/spec seam as the only place SOLID-style abstraction earns its keep. Inside `parts/`, geometry code stays flat and procedural — no class hierarchies, no interfaces.
 
 **Lower layer**: build123d code that produces parts. One module per part: `tape_cell.py`, `rail.py`, `gantry.py`, etc. Each exposes a `Config` dataclass and a `make_X(cfg)` function returning a `build123d.Part`. Parametric, no globals, no implicit state.
 
@@ -56,20 +58,21 @@ docs/
 3. **Gantry / head** — bridge straddling the tape, riding on the rail's T-channel via small wheels or printed sliders. Subassemblies:
    - *Carriage*: engages rails, has its own per-cell detent (one click per cell), so head locates exactly over one cell at a time.
    - *Reader arm*: hangs alongside the cell; 3 spring-loaded probes drop into pin-holes on the upward face. Probe up/down state (3-bit binary) is the input to the lookup mechanism.
-   - *Writer*: driven by the transition mechanism. Rotates the cell under the head to the new symbol's orientation.
-   - *State register*: an internal 4-position store that the transition mechanism reads and updates. A small viewing window for debugging is optional.
+   - *Writer linkage*: driven by the transition mechanism, rotates the cell under the head to the new symbol's orientation.
+
+   The state register and the lookup mechanism may live on the gantry or in a fixed housing — decide alongside the mechanism class (see part 6).
 
 4. **Drive** — crank into a main shaft that sequences the transition cycle (read → lookup → write → move → state-update). The crank-turns-per-transition ratio is a mechanism-design choice and may vary per transition. The crank is the sole runtime control and the sole interface to the outside world; it accepts a hand grip or a motor coupling.
 
 5. **End caps** — left and right terminators with the rail dovetail on one side, solid on the other. Cap the T-channel cleanly so the gantry can't run off the end.
 
-6. **Transition table mechanism** — the embodied 22-rule lookup. Takes (current state, current symbol) as inputs and produces (new symbol, head-move direction, new state) as outputs that drive the writer, the carriage advance, and the state register. **Status: not started.** Candidates to evaluate: a rotating drum with 22 cam tracks indexed by (state, symbol); a stack of 22 plates selected by a 6×4 pin matrix; a Geneva-driven lookup wheel. The mechanism's footprint constrains the gantry, so pick a direction before finalizing gantry geometry.
+6. **Transition table mechanism** — the embodied 22-rule lookup. Takes (current state, current symbol) as inputs and produces (new symbol, head-move direction, new state) as outputs that drive the writer, the carriage advance, and the state register. The mechanism's footprint constrains the gantry, so its class is chosen before gantry geometry is finalized. **Status: not started — see "What's next" step 4 for candidates.**
 
 ## Symbol encoding (decided)
 
 3-bit binary pin pattern per face. Each face has 3 hole positions along the prism's long axis; bit set = hole drilled, bit clear = solid. 2³ = 8 patterns, use 6.
 
-The tape cell as currently coded has **fixed** symbols at print time — face N is permanently symbol X. To "write," operator rotates the cell. This is correct for a UTM where the tape's *content* changes by writing, but here writing means: rotate the cell so the new symbol's face is up. All cells are identical at print time, programmed by orientation. (Design alternative considered and rejected: settable pegs that are pushed in/out per face. Too fiddly for v1.)
+Each face is fixed at print time — face N is permanently symbol X. All cells are identical; a cell is "programmed" by its orientation on the post. Writing, in this design, means rotating the cell so the target symbol's face is up.
 
 The reader has 3 spring-loaded probes; their up/down state on the upward face = the 3-bit symbol code. The probe positions feed the transition mechanism, which together with the current-state register selects the matching transition rule and drives the writer / move / state update.
 
@@ -81,13 +84,13 @@ Engraved labels on each face next to the pin column give the operator a human-re
 
 These four contracts are most of the engineering work. Tolerance them carefully and validate with test prints before committing to the full machine.
 
-1. **Probe state + state register → rule selection** — how the 3 probe positions plus the 4-position state register select one of 22 rules and drive the writer, the head's L/R motion, and the state update. The mechanism class for this lookup is the highest-impact open decision: it sets the geometry budget for the gantry and the drive.
+1. **Probe state + state register → rule selection** — how the 3 probe positions plus the 4-position state register select one of 22 rules and drive the writer, the head's L/R motion, and the state update. The mechanism class chosen here sets the geometry budget for the gantry and the drive, so it is decided before either is finalized.
 
 2. **Cell ↔ post fit** — bore diameter, detent dimple geometry, rotation friction. 0.4mm clearance on the bore is a reasonable FDM start; iterate. Detent dimples (currently hemispherical, 2mm diameter) must match a sprung bump on the post — bump not yet designed. The writer drives cell rotation against this detent, so detent force is part of the transition mechanism's torque budget.
 
 3. **Segment ↔ segment join** — dovetail + alignment pin + magnet. Guide rail (T-channel) must be continuous across the join to within ~0.2mm or the gantry's wheels will catch. Get this right once and the tape is genuinely modular.
 
-4. **Gantry ↔ rail fit** — how the carriage rides the T-channel. Printed-plastic-on-printed-plastic wears, so this needs careful design: low-friction geometry, generous contact area, possibly a sacrificial wear surface that can be reprinted. Metal ball bearings would be easier but violate the print-only scope; only revisit that tradeoff if a printed solution proves genuinely unworkable after honest iteration.
+4. **Gantry ↔ rail fit** — how the carriage rides the T-channel. Printed-plastic-on-printed-plastic wears, so this needs careful design: low-friction geometry, generous contact area, possibly a sacrificial wear surface that can be reprinted.
 
 ## Tape cell — current state
 
@@ -112,7 +115,7 @@ In rough priority:
 
 3. **Two-segment chain validation** — print 2 short rails and confirm the dovetail join holds the T-channel continuous within tolerance.
 
-4. **Transition mechanism feasibility sketch** — must precede gantry finalization. Sketch how 22 rules get embodied mechanically. Inputs: 3 probe states + 4-state register. Outputs: drive a 3-plunger writer (rotates cell to new symbol orientation), drive L/R head motion, update the state register. A transition may take many crank revolutions, and the count may differ between transitions. Candidates: rotating drum with 22 cam tracks indexed by (state, symbol); stack of 22 plates selected by a 6×4 pin matrix; Geneva-driven lookup wheel. Pick one direction; the gantry must accommodate it.
+4. **Transition mechanism feasibility sketch** — precedes gantry finalization. Sketch how 22 rules get embodied mechanically. Inputs: 3 probe states + 4-state register. Outputs: rotate the cell under the head to the new symbol's orientation, drive L/R head motion, update the state register. A transition may take many crank revolutions, and the count may differ between transitions. Candidates: rotating drum with 22 cam tracks indexed by (state, symbol); stack of 22 plates selected by a 6×4 pin matrix; Geneva-driven lookup wheel. Pick one direction; the gantry must accommodate it.
 
 5. **Gantry / carriage** — the T-channel rider. Most complex passive part. Works with printed contact surfaces; design for low friction and replaceable wear surfaces. Reader probes and the writer's mechanical link to the transition mechanism are sub-designs here. Depends on step 4.
 
@@ -130,7 +133,7 @@ In rough priority:
 
 - Label engraving uses single characters. Rogozhin's symbols in the original paper use multi-character notation (e.g. `b₁`, `c₁`). Either rewrite as single Unicode glyphs, or design face labels as small icon SVGs and emboss those. Defer until cosmetic pass.
 
-- **Transition mechanism class.** 22 rules × (3-bit symbol output + L/R + 2-bit new state) is small enough to encode in printed geometry, but the mechanism class is open. The choice constrains gantry, drive, and writer geometry, so it is a high-priority decision. See "What's next" step 4.
+- **Transition mechanism class.** 22 rules × (3-bit symbol output + L/R + 2-bit new state) is small enough to encode in printed geometry, but the mechanism class is open. The choice constrains gantry, drive, and writer geometry, so it is decided before any of those. See "What's next" step 4.
 
 - Operator ergonomics: table height and crank torque. The crank drives the full transition cycle, so torque budget covers the writer, the carriage advance, and the lookup mechanism together. Deal with after first end-to-end mechanical mockup.
 
@@ -138,6 +141,5 @@ In rough priority:
 
 ## Constraints / preferences
 
-- Keep code SOLID-ish only where it pays off — the part/spec seam, the abstract `make_X(cfg)` interface, dataclass configs. Don't over-engineer the geometry code itself.
-- Brief explanations preferred. The user is a senior software engineer (~30 yrs) but not a mechanical engineer; flag any mechanical-engineering reasoning explicitly rather than treating it as obvious.
+- The user is a senior software engineer (~30 yrs) but not a mechanical engineer; flag any mechanical-engineering reasoning explicitly rather than treating it as obvious. Brief explanations preferred.
 - Existing tools first: before designing a new geometric helper, check whether build123d already has it. Snap-fits, threads, gears, bearings have library support.

@@ -24,9 +24,9 @@ and the state register; the operator supplies motion, not decisions.
   meaningfully help (e.g. segment alignment).
 - **Crank-driven, no electronics in the machine itself.** A single crank is
   the sole runtime control. No firmware, sensors, motors, solenoids, or active
-  electronics are part of the machine. Allowed future exception: the crank
-  itself may be turned by an external motor instead of by hand. That motor is
-  not part of the machine — it just replaces the human arm.
+  electronics are part of the machine. The crank accepts a hand grip or an
+  external motor coupling at the same interface; any such motor is external
+  to the machine.
 - **Modular tape.** Tape segments chain end-to-end so the tape can be extended
   to whatever length a given program needs.
 - **Rogozhin (4,6).** The smallest known *standard* universal Turing machine;
@@ -35,5 +35,4 @@ and the state register; the operator supplies motion, not decisions.
 ## Done looks like
 
 A printed machine that, loaded with any valid Rogozhin (4,6) program and input,
-computes the correct result and halts — driven only by turning the crank
-(by hand, or optionally by an external motor).
+computes the correct result and halts — driven only by turning the crank.
