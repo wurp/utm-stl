@@ -4,9 +4,11 @@
 
 ## Purpose
 
-Design a hand-operable, 3D-printable physical universal Turing machine based on Rogozhin's UTM(4,6) — 4 states, 6 symbols, 22 transition rules. Operator hand-programs a tape, then runs the machine by turning a hand crank. The tape is modular: any number of segments chained together, indefinitely extensible.
+Design a crank-driven, 3D-printable physical universal Turing machine based on Rogozhin's UTM(4,6) — 4 states, 6 symbols, 22 transition rules. Operator hand-programs the tape (sets each cell's symbol by rotation), then runs the machine by turning a single crank. Cranking advances the machine through transitions — read the symbol under the head, look up the (state, symbol) entry in the embodied transition table, write the new symbol, move the head one cell L/R, change to the new state — until it halts. The operator supplies motion, not decisions. The tape is modular: any number of segments chained together, indefinitely extensible.
 
-Output is a set of STL files plus build documentation. The whole machine is fully 3D-printable and hand-operated — no firmware, no electronics, no motor, ever. Allowed non-printed parts: standard nuts & bolts, and small magnets where they meaningfully help. The operator does symbol lookup against a printed transition card; that *is* the design, not a placeholder for an electronic version.
+Output is a set of STL files plus build documentation. The whole machine is fully 3D-printable and crank-operated. No active electronics are part of the machine. Allowed non-printed parts: standard nuts & bolts, and small magnets where they meaningfully help. The crank may be turned by hand or by an external motor coupled to it; the motor is external to the machine. The 22-rule transition table is embodied in printed geometry — cams, followers, plates; exact mechanism TBD.
+
+The ratio of crank turns to transitions is a mechanism-design choice, not a fixed contract. Different transitions may take different amounts of cranking. The mechanism may sequence read → lookup → write → move → state-update across many revolutions, and across a variable number of revolutions per transition.
 
 ## Why Rogozhin (4,6) and not smaller
 
@@ -27,7 +29,7 @@ Two layers, with the seam being the only place SOLID-style abstraction earns its
 
 **Lower layer**: build123d code that produces parts. One module per part: `tape_cell.py`, `rail.py`, `gantry.py`, etc. Each exposes a `Config` dataclass and a `make_X(cfg)` function returning a `build123d.Part`. Parametric, no globals, no implicit state.
 
-**Upper layer** (not yet written): a `utm_spec.py` module that takes a UTM specification (states, symbols, transition table) plus a physical config (cell pitch, prism diameter, rail length) and produces a parts manifest — how many cells, how many rail segments, transition card SVG, BOM. Written so that swapping (4,6) for any other (m,n) Turing machine is data-only. The spec layer should depend on abstract part interfaces (`make_cell(symbol_count)`, `make_rail(cell_count, post_pitch)`), not hex-prism specifics, so triangular cells for (2,3) or pentagonal for (5,5) can drop in later.
+**Upper layer** (not yet written): a `utm_spec.py` module that takes a UTM specification (states, symbols, transition table) plus a physical config (cell pitch, prism diameter, rail length) and produces a parts manifest — how many cells, how many rail segments, the rule-encoding geometry (cam profiles / plate cutouts / pin-matrix data) for the transition mechanism, and a BOM. Written so that swapping (4,6) for any other (m,n) Turing machine is data-only. The spec layer should depend on abstract part interfaces (`make_cell(symbol_count)`, `make_rail(cell_count, post_pitch)`, `make_transition_mechanism(rules, state_count, symbol_count)`), not hex-prism specifics, so triangular cells for (2,3) or pentagonal for (5,5) can drop in later.
 
 Suggested project layout:
 ```
@@ -53,15 +55,15 @@ docs/
 
 3. **Gantry / head** — bridge straddling the tape, riding on the rail's T-channel via small wheels or printed sliders. Subassemblies:
    - *Carriage*: engages rails, has its own per-cell detent (one click per cell), so head locates exactly over one cell at a time.
-   - *Reader arm*: hangs alongside the cell; 3 spring-loaded probes drop into pin-holes on the upward face. Probe up/down state = symbol (3-bit binary).
-   - *Writer*: operator lifts head, edits cell by hand, drops head back. (A 3-plunger manual-lever writer is a possible refinement, still hand-driven.)
-   - *State indicator*: 4-position rotary dial on top, color-coded.
+   - *Reader arm*: hangs alongside the cell; 3 spring-loaded probes drop into pin-holes on the upward face. Probe up/down state (3-bit binary) is the input to the lookup mechanism.
+   - *Writer*: driven by the transition mechanism. Rotates the cell under the head to the new symbol's orientation.
+   - *State register*: an internal 4-position store that the transition mechanism reads and updates. A small viewing window for debugging is optional.
 
-4. **Drive** — rack on the rail's edge, pinion on the carriage, hand crank. Geared for 1 crank revolution = 1 cell of travel. Hand-cranked, full stop — no motor interface.
+4. **Drive** — crank into a main shaft that sequences the transition cycle (read → lookup → write → move → state-update). The crank-turns-per-transition ratio is a mechanism-design choice and may vary per transition. The crank is the sole runtime control and the sole interface to the outside world; it accepts a hand grip or a motor coupling.
 
 5. **End caps** — left and right terminators with the rail dovetail on one side, solid on the other. Cap the T-channel cleanly so the gantry can't run off the end.
 
-6. **Transition table card holder** — frame for a laminated 4×6 (really 22-entry) lookup card. Clips to the gantry or sits beside the machine.
+6. **Transition table mechanism** — the embodied 22-rule lookup. Takes (current state, current symbol) as inputs and produces (new symbol, head-move direction, new state) as outputs that drive the writer, the carriage advance, and the state register. **Status: not started.** Candidates to evaluate: a rotating drum with 22 cam tracks indexed by (state, symbol); a stack of 22 plates selected by a 6×4 pin matrix; a Geneva-driven lookup wheel. The mechanism's footprint constrains the gantry, so pick a direction before finalizing gantry geometry.
 
 ## Symbol encoding (decided)
 
@@ -69,21 +71,23 @@ docs/
 
 The tape cell as currently coded has **fixed** symbols at print time — face N is permanently symbol X. To "write," operator rotates the cell. This is correct for a UTM where the tape's *content* changes by writing, but here writing means: rotate the cell so the new symbol's face is up. All cells are identical at print time, programmed by orientation. (Design alternative considered and rejected: settable pegs that are pushed in/out per face. Too fiddly for v1.)
 
-The reader has 3 spring-loaded probes; their up/down state on the upward face = the 3-bit symbol code. Operator looks at probe-flag positions, cross-references transition card, performs the action.
+The reader has 3 spring-loaded probes; their up/down state on the upward face = the 3-bit symbol code. The probe positions feed the transition mechanism, which together with the current-state register selects the matching transition rule and drives the writer / move / state update.
 
 Suggested mapping: assign the most common symbol (Rogozhin's "blank" equivalent) to pattern `000` (no holes — easiest to read at a glance). Other 5 symbols to any 5 of the remaining 7 patterns. Mapping is a `face_patterns` list in `TapeCellConfig`.
 
-Engraved labels on each face next to the pin column give a human-readable sanity check.
+Engraved labels on each face next to the pin column give the operator a human-readable sanity check when programming the tape.
 
 ## Critical geometric interfaces
 
-These three contracts are 80% of the engineering work. Tolerance them carefully and validate with test prints before committing to the full machine.
+These four contracts are most of the engineering work. Tolerance them carefully and validate with test prints before committing to the full machine.
 
-1. **Cell ↔ post fit** — bore diameter, detent dimple geometry, rotation friction. 0.4mm clearance on the bore is a reasonable FDM start; iterate. Detent dimples (currently hemispherical, 2mm diameter) must match a sprung bump on the post — bump not yet designed.
+1. **Probe state + state register → rule selection** — how the 3 probe positions plus the 4-position state register select one of 22 rules and drive the writer, the head's L/R motion, and the state update. The mechanism class for this lookup is the highest-impact open decision: it sets the geometry budget for the gantry and the drive.
 
-2. **Segment ↔ segment join** — dovetail + alignment pin + magnet. Guide rail (T-channel) must be continuous across the join to within ~0.2mm or the gantry's wheels will catch. Get this right once and the tape is genuinely modular.
+2. **Cell ↔ post fit** — bore diameter, detent dimple geometry, rotation friction. 0.4mm clearance on the bore is a reasonable FDM start; iterate. Detent dimples (currently hemispherical, 2mm diameter) must match a sprung bump on the post — bump not yet designed. The writer drives cell rotation against this detent, so detent force is part of the transition mechanism's torque budget.
 
-3. **Gantry ↔ rail fit** — how the carriage rides the T-channel. Printed-plastic-on-printed-plastic wears, so this needs careful design: low-friction geometry, generous contact area, possibly a sacrificial wear surface that can be reprinted. Metal ball bearings would be easier but violate the print-only scope; only revisit that tradeoff if a printed solution proves genuinely unworkable after honest iteration.
+3. **Segment ↔ segment join** — dovetail + alignment pin + magnet. Guide rail (T-channel) must be continuous across the join to within ~0.2mm or the gantry's wheels will catch. Get this right once and the tape is genuinely modular.
+
+4. **Gantry ↔ rail fit** — how the carriage rides the T-channel. Printed-plastic-on-printed-plastic wears, so this needs careful design: low-friction geometry, generous contact area, possibly a sacrificial wear surface that can be reprinted. Metal ball bearings would be easier but violate the print-only scope; only revisit that tradeoff if a printed solution proves genuinely unworkable after honest iteration.
 
 ## Tape cell — current state
 
@@ -102,19 +106,21 @@ Known artifact: 12 broken faces in the STL at engraved-text edges (microscopic T
 
 In rough priority:
 
-1. **Draft `parts/rail.py`** — the tape segment. This is the next critical piece because it locks in cell pitch, post diameter, the sprung detent bump on the post (which must match the cell's dimples), and the segment-to-segment dovetail. Likely the second-hardest part after the gantry.
+1. **Draft `parts/rail.py`** — the tape segment. This locks in cell pitch, post diameter, the sprung detent bump on the post (which must match the cell's dimples), and the segment-to-segment dovetail. Independent of the transition mechanism, so safe to do now.
 
 2. **Test print validation** — once the rail exists, the operator should print *one* cell + *one* rail and verify the cell-on-post fit, detent feel, and rotation friction before committing to anything else. This is a 2-3 hour exercise that prevents wasted prints later.
 
 3. **Two-segment chain validation** — print 2 short rails and confirm the dovetail join holds the T-channel continuous within tolerance.
 
-4. **Gantry / carriage** — the T-channel rider. Most complex part. Must work with printed contact surfaces (no metal bearings); design for low friction and replaceable wear surfaces. Reader probes are a sub-design here.
+4. **Transition mechanism feasibility sketch** — must precede gantry finalization. Sketch how 22 rules get embodied mechanically. Inputs: 3 probe states + 4-state register. Outputs: drive a 3-plunger writer (rotates cell to new symbol orientation), drive L/R head motion, update the state register. A transition may take many crank revolutions, and the count may differ between transitions. Candidates: rotating drum with 22 cam tracks indexed by (state, symbol); stack of 22 plates selected by a 6×4 pin matrix; Geneva-driven lookup wheel. Pick one direction; the gantry must accommodate it.
 
-5. **Drive (rack + pinion + crank)** — straightforward gear math. Specify the gearing for 1-crank-rev = 1-cell.
+5. **Gantry / carriage** — the T-channel rider. Most complex passive part. Works with printed contact surfaces; design for low friction and replaceable wear surfaces. Reader probes and the writer's mechanical link to the transition mechanism are sub-designs here. Depends on step 4.
 
-6. **End caps + state dial + card holder** — cosmetic, save for last.
+6. **Drive (crank + main shaft)** — crank turns a main shaft that sequences the transition cycle. Gear/cam profiles depend on the transition mechanism chosen in step 4. The crank accepts either a hand grip or a motor coupling at the same interface.
 
-7. **Upper layer (`spec/utm_spec.py` + `spec/rogozhin_46.py`)** — once the parts code is stable, build the spec layer that takes a transition table + physical config and emits a full parts manifest and a printable transition card SVG. Encode Rogozhin's actual 22-rule (4,6) table from his 1996 paper (*Theoretical Computer Science* 168(2):215-240).
+7. **End caps** — cosmetic, save for last.
+
+8. **Upper layer (`spec/utm_spec.py` + `spec/rogozhin_46.py`)** — once the parts code and the transition mechanism class are stable, build the spec layer that takes a transition table + physical config and emits a full parts manifest, including the cam profiles / plate cutouts / pin-matrix that encode the 22 rules. Encode Rogozhin's actual 22-rule (4,6) table from his 1996 paper (*Theoretical Computer Science* 168(2):215-240). With the mechanism parameterized, swapping in a different (m,n) machine becomes a data change.
 
 ## Open questions / things to validate
 
@@ -124,7 +130,9 @@ In rough priority:
 
 - Label engraving uses single characters. Rogozhin's symbols in the original paper use multi-character notation (e.g. `b₁`, `c₁`). Either rewrite as single Unicode glyphs, or design face labels as small icon SVGs and emboss those. Defer until cosmetic pass.
 
-- Operator ergonomics not yet considered — table height, head-rotation force, crank torque. Deal with after first end-to-end mechanical mockup.
+- **Transition mechanism class.** 22 rules × (3-bit symbol output + L/R + 2-bit new state) is small enough to encode in printed geometry, but the mechanism class is open. The choice constrains gantry, drive, and writer geometry, so it is a high-priority decision. See "What's next" step 4.
+
+- Operator ergonomics: table height and crank torque. The crank drives the full transition cycle, so torque budget covers the writer, the carriage advance, and the lookup mechanism together. Deal with after first end-to-end mechanical mockup.
 
 - License: pick one before pushing to GitHub. CC-BY-SA 4.0 for the STL/docs and MIT for the code is a common combo for hardware projects.
 

@@ -59,20 +59,50 @@ Engraved `Text` features can produce microscopic self-intersections (broken face
 glyph edges. Slicers handle this silently; trimesh will flag it. If you need a perfectly
 clean STL, set `label_depth_mm=0` to skip engraving. Don't chase these defects otherwise.
 
-## Hard scope: print-only, hand-operated
+## Hard scope: print-only, crank-driven
 
-This machine is fully 3D-printable and hand-operated. No firmware, no electronics, no
-motor — ever. Operator hand-cranks (or hand-advances) the gantry and does symbol lookup
-against a printed transition card.
+The machine is fully 3D-printable and crank-driven. No active electronics are part of
+the machine.  The crank is the sole runtime control and the sole interface to the
+outside world; it accepts a hand grip or an external motor coupling at the same
+interface, and any such motor is external to the machine.
+
+The transition table is embodied in printed geometry that drives the writer, head
+direction, and state register. The operator supplies motion via the crank; the
+machine performs read, lookup, write, move, and state update.
 
 Allowed non-printed parts: standard nuts & bolts, and small magnets where they
 meaningfully help (e.g. segment alignment). Springs should be printed (compliant
 flexures) where feasible; if a metal spring is the only practical option for a given
 mechanism, flag it explicitly and propose a printed alternative first.
 
-Do not propose MCUs, sensors, motors, solenoids, encoders, or any active electronics.
-If a design problem seems to need one, the answer is to redesign the mechanism, not to
-add electronics. There is no "v2 with electronics" — that direction is closed.
+If a design problem seems to need active electronics, the answer is to redesign the
+mechanism.
+
+## Documentation style
+
+Project docs (`VISION.md`, `HANDOFF.md`, `CLAUDE.md`, anything in `docs/`) are
+greenfield reference documents, not a record of conversations or design history.
+Write each section as a standalone description of the current state of the project.
+
+- Do not define content by contrast to a removed or prior version. Phrases like
+  "no longer", "now ... not just", "instead of (the old approach)", "off the
+  table", "rejected alternative", "fundamentally unsolved", "biggest open
+  problem" all reveal that the doc is reacting to an earlier draft. State the
+  current rule directly.
+- Do not reference what was removed or what was once proposed. A reader who
+  picks up the doc cold should not be able to tell which sentences are
+  edits-in-response-to-feedback vs. original content.
+- Forward-looking exceptions and constraints are fine when they describe the
+  rule itself ("the crank may be hand- or motor-driven"), not when they
+  catalogue past discussion.
+- Meta-ranking ("highest-priority", "top billing", "biggest unsolved") usually
+  encodes a conversational emphasis. Prefer concrete reasons ("this constrains
+  gantry geometry, so resolve it before drafting the gantry").
+
+When updating a doc in response to feedback, rewrite the affected sections as
+if writing them from scratch given the current understanding. Apply this
+greenfield rewrite even when the user's request is phrased as "change X to Y" —
+the resulting prose should not betray that X was ever there.
 
 ## Workflow notes
 
