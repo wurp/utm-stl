@@ -1,38 +1,86 @@
 # Tasks
 
-Active and queued work for the project. Completed work moves to a section at the bottom or is deleted once it's reflected in the docs.
+Active and queued work for the project. Completed work moves to a section
+at the bottom or is deleted once it's reflected in the docs.
 
 ## Active
 
-### Reorganize docs top-down before writing more code
-
-Restructure the project documentation so it works from the highest level down to per-part design, in this order:
-
-1. **Vision** — what the machine is and the constraints that define it. (`docs/VISION.md` already covers this.)
-2. **Design influences** — prior art surveyed, the encoding/mechanism archetypes considered, and which were chosen and why. The peg-stop transition mechanism, the binary-coded symbol encoding, the linear-slider cell, etc., all belong here as decisions with their justifications.
-3. **Common mechanisms** — the small set of mechanical primitives the machine reuses across parts: spring-loaded arm with peg-stop output, gravity/flexure-returned lock bar, print-in-place with clearance gaps, FDM detent (dimple + sprung bump), dovetail + magnet segment join. Each described once, referenced by the parts that use it.
-4. **Part inventory** — the list of parts and how they fit together, at the level of "what does each part do and what does it interface with." No dimensions; no build123d code.
-5. **Per-part design docs** — one document per part, describing geometry, interfaces, tolerances, and open questions in enough detail that a build123d module is a mechanical translation of the doc.
-6. **Code** — a build123d module per part, written *only after* the corresponding design doc is complete.
-
-The current `docs/HANDOFF.md` mixes layers 2 through 5. Split its content into the new layered docs, then delete it — it was a one-time project-initialization document and has no role once the layered docs exist. Keep `VISION.md` as is. Drafts of layers 2–4 should land before any new per-part design doc; per-part docs land before any new code.
-
-Once the higher-level design information for the slider cell is captured in the design-influences and per-part design docs, delete `3d-parts/slider_cell.py`. It was written ahead of its design doc, contains a known bug (lock bar must be cell-resident, not gantry-resident), and shouldn't be iterated on in place. Git history preserves it if needed.
+(None.)
 
 ## Queued
 
-### Decisions to capture in the design-influences doc when the reorg happens
+In rough priority order — earlier items unblock later ones.
 
-These are settled directionally but not yet written down in a layered doc. Capture them as decisions with their rationale so the per-part design docs can reference them.
+### Choose the row-selection mechanism for the transition plate
 
-- **Symbol is the slider's position.** Six detents = six symbols. The compute head interacts with the slider at one of six positions; the position itself is the input to downstream mechanisms, collapsing read and row-select on the transition plate into one mechanical operation — the slider's position *is* the row select.
+The peg-stop output approach is settled (`docs/DESIGN_INFLUENCES.md`).
+Open: how (current state, current symbol) selects which row of pegs the
+output arms see. Candidates: translate the plate in two axes (state along
+one, symbol along the other); translate the arms instead of the plate;
+mask all rows except the selected one with a 6×4 pin matrix above the
+plate. The choice constrains gantry footprint, drive sequencing, and
+recock geometry. This is the project's keystone open question; resolving
+it unblocks the gantry, drive, and transition plate per-part docs.
 
-- **Lock is cell-resident, flexure-returned.** Each cell housing contains its own lock that holds the slider in its current detent at rest, with a printed compliant flexure pressing the lock into engagement. The compute head, when it arrives over a cell, mechanically disengages that cell's lock for the duration of write, then withdraws to let the flexure re-engage it before leaving.
+### Draft per-part doc for the rail / tape segment
 
-- **Transition mechanism is peg-stops on a printed plate.** Spring-loaded arms are released and travel until they hit pegs printed at the appropriate (state, symbol) row. One arm per output (new symbol, head direction, new state). The 22 rules are 22 sets of three pegs on one plate. Open: how (state, symbol) selects which row of pegs the arms see — translate the plate, translate the arms, or mask with a pin matrix.
+`docs/parts/rail.md`. High-level prose: cell housings integral vs.
+socketed (the decision lives here, with its tolerance-stack consequences
+called out against `docs/INTERFACES.md`'s datum chain), T-channel layout,
+segment join geometry. No dimensions.
 
-- **Crank's job includes re-cocking.** Each transition cycle re-tensions every spring-loaded arm and trips the releases in sequence. This is a familiar mechanism class (mousetrap clockwork, escapement), not a new invention.
+### Test-print the slider cell
+
+Once the build123d module for the cell is written (after the row-select
+mechanism choice), print one housing+slider as-is and verify: slider
+releases cleanly from the print-in-place support, slides freely with the
+modeled clearances, detents engage perceptibly, the cell-resident lock
+engages and disengages cleanly under the lock-disengagement input. Gates
+everything downstream — if the cell doesn't print as intended, the cell
+geometry needs revision before the rail.
+
+### Two-segment chain validation
+
+Print two short rails and confirm the dovetail + alignment pin + magnet
+join holds the T-channel and cell pitch continuous within the tolerance
+budget that lands in `docs/INTERFACES.md`.
+
+### Draft per-part docs for gantry, drive, transition plate, end caps
+
+`docs/parts/gantry.md`, `docs/parts/drive.md`,
+`docs/parts/transition_plate.md`, `docs/parts/end_caps.md`. The first
+three depend on the row-selection mechanism choice; end caps are
+cosmetic and can land last.
+
+### Build the spec / upper layer
+
+`spec/utm_spec.py` and `spec/rogozhin_46.py`. Once parts code and the
+row-selection mechanism are stable, build the upper layer that takes a
+transition table + physical config and emits a full parts manifest
+including the peg coordinates encoding the 22 rules. Encode Rogozhin's
+actual (4,6) table from his 1996 paper (*Theoretical Computer Science*
+168(2):215–240). Parameterize so swapping a different (m,n) machine is a
+data change.
+
+### Pick a license
+
+CC-BY-SA 4.0 for STL/docs and MIT for code is a common combo for
+hardware projects. Decide before pushing to a public remote.
+
+### Operator ergonomics pass
+
+Table height, crank torque, and the operator's interaction with the
+machine end-to-end. Land after the first end-to-end mechanical mockup
+gives concrete numbers for the `docs/CYCLE.md` force budget.
 
 ## Completed
 
-(Empty.)
+### Reorganize docs top-down before writing more code
+
+Split `docs/HANDOFF.md` into the layered documentation set (`VISION.md`,
+`DESIGN_INFLUENCES.md`, `COMMON_MECHANISMS.md`, `CYCLE.md`,
+`INTERFACES.md`, `PART_INVENTORY.md`, `parts/slider_cell.md`) and
+deleted `HANDOFF.md` and `3d-parts/slider_cell.py`. Each layer is now
+editable independently; integration constraints (cycle, datum chain)
+have explicit homes; the slider cell awaits a rewrite once the
+row-select mechanism is chosen.

@@ -3,8 +3,11 @@ Physical Universal Turing Machine — 3D-printable parts generated from build123
 `docs/VISION.md` is the source of truth on what this project is. Read it first; if anything
 here conflicts with it, VISION.md wins.
 
-Read `docs/HANDOFF.md` for the full project context (why Rogozhin (4,6), part inventory,
-what's next). This file covers conventions for working in the repo.
+Read these in order for project context:
+`docs/VISION.md`, `docs/DESIGN_INFLUENCES.md`, `docs/COMMON_MECHANISMS.md`,
+`docs/CYCLE.md`, `docs/INTERFACES.md`, `docs/PART_INVENTORY.md`. Per-part
+design lives in `docs/parts/`. Active and queued work is tracked in
+`docs/TASKS.md`. This file covers conventions for working in the repo.
 
 ## Project layout
 
@@ -12,7 +15,7 @@ what's next). This file covers conventions for working in the repo.
 spec/         # (not yet created) upper layer: UTM spec → parts manifest
 tests/        # (not yet created) trimesh-based geometry sanity checks
 build/        # generated STLs, gitignored
-docs/HANDOFF.md
+docs/         # layered design documentation; per-part docs in docs/parts/
 
 The 3d-parts/spec seam is the only place SOLID-style abstraction is wanted. Don't
 introduce class hierarchies or interfaces inside `3d-parts/` — geometry code stays flat
@@ -20,16 +23,14 @@ and procedural.
 
 ## Per-part conventions
 
-Every module in `3d-parts/` follows the same shape (see `3d-parts/slider_cell.py` as the
-reference):
+Every module in `3d-parts/` follows the same shape:
 
 - A frozen-ish `XConfig` dataclass exposing every dimension as a field with a default.
 - A `make_x(cfg: XConfig = XConfig()) -> build123d.Part` function. No globals, no
   module-level state, no I/O at import time.
 - A `__main__` block that constructs with defaults, exports an STL to `/tmp/`, and prints
   a short summary. Keep this — it's the one-liner smoke test.
-- Coordinate convention: document axes at the top of the file. The cell uses +X for
-  slider travel, +Y along the tape axis, +Z vertical.
+- Coordinate convention: document axes at the top of the file.
 
 When adding a new part, mirror this structure exactly. Don't invent a new pattern.
 
@@ -42,7 +43,7 @@ When adding a new part, mirror this structure exactly. Don't invent a new patter
 - STL is the primary output; STEP is optional.
 - No GUI here — the user views STLs at viewstl.com or 3dviewer.net.
 
-Run a part module directly to regenerate its STL: `python 3d-parts/slider_cell.py`.
+Run a part module directly to regenerate its STL: `python 3d-parts/<part>.py`.
 
 ## Mechanical engineering hygiene
 
@@ -88,8 +89,8 @@ mechanism.
 
 ## Documentation style
 
-Project docs (`VISION.md`, `HANDOFF.md`, `CLAUDE.md`, anything in `docs/`) are
-greenfield reference documents. Each section is a standalone description of
+Project docs (`CLAUDE.md` and anything in `docs/`) are greenfield reference
+documents. Each section is a standalone description of
 the current state of the project, readable cold by someone who has never seen
 a prior version.
 

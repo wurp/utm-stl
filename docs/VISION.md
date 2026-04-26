@@ -1,7 +1,8 @@
 # Project Vision
 
 This is the source of truth on what this project is. If anything in `CLAUDE.md`,
-`HANDOFF.md`, or the code conflicts with this document, this document wins.
+the other layered docs in `docs/`, or the code conflicts with this document,
+this document wins.
 
 ## The machine
 
