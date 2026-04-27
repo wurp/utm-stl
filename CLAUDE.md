@@ -7,7 +7,8 @@ Read these in order for project context:
 `docs/VISION.md`, `docs/DESIGN_INFLUENCES.md`, `docs/COMMON_MECHANISMS.md`,
 `docs/CYCLE.md`, `docs/INTERFACES.md`, `docs/PART_INVENTORY.md`. Per-part
 design lives in `docs/parts/`. Active and queued work is tracked in
-`docs/TASKS.md`. This file covers conventions for working in the repo.
+`docs/TASKS.md`. Term definitions are in `docs/GLOSSARY.md`. This file
+covers conventions for working in the repo.
 
 ## Project layout
 

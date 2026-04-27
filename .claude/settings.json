@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git reset --keep:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(git clean -df:*)",
+      "Bash(git clean -dfx:*)",
+      "Bash(git clean -xf:*)",
+      "Bash(git clean -xfd:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(*git *)",
+            "command": "cmd=$(jq -r '.tool_input.command // \"\"'); if echo \"$cmd\" | grep -Eq '(^|[ \\t;&|`$(])git[ \\t]+(checkout|restore)([ \\t]|$)|git[ \\t]+reset[ \\t]+(--hard|--keep)([ \\t]|$)|git[ \\t]+clean[ \\t]+(-[a-eg-z]*f|-f[a-z]*)([ \\t]|$)'; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Destructive git command blocked by .claude/settings.json hook. This command can silently overwrite uncommitted working-tree changes. Stash dirty work first (git stash push -u), then ASK THE USER before proceeding. See ~/.claude/projects/-Users-wurp-projects-ourcloud/memory/feedback_destructive_git.md for the recovery-options-before-checkout rule.\"}}'; fi; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

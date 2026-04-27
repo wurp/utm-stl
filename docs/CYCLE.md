@@ -3,12 +3,12 @@
 What happens during one transition. The cycle document is *temporal*:
 which mechanical events occur, in what order, with what force budget, and
 where the operator is allowed to stop. The gantry, drive, and transition
-plate must all agree on this cycle or they will fight at integration.
+cylinder must all agree on this cycle or they will fight at integration.
 
-The cycle is currently a skeleton — the phase list and the ordering
-constraints are settled, but most crank-angle assignments and force
-numbers are TBD. The structure exists so per-part docs have a place to
-attach phase-relative constraints as they are written.
+The phase list and the ordering constraints are settled. Crank-angle
+assignments and force numbers are placeholders, filled in by the drive
+doc and a force-budget test print; per-part docs attach phase-relative
+constraints to the structure as they are drafted.
 
 ## Phases of one transition
 
@@ -19,37 +19,51 @@ phases below break that into discrete mechanical events; each phase is
 either active (something is moving) or static (the system is at rest in
 a configuration the next phase will act on).
 
-The crank-turns-per-transition ratio is a mechanism-design choice. A
-single transition may span multiple crank revolutions, and different
-transitions may take different amounts of cranking. Phase ordering does
-not assume a fixed number of revolutions per cycle.
+Phase ordering and timing are encoded in the cam stack on the crank
+shaft (`docs/DESIGN_INFLUENCES.md`, cam-driven phase sequencing).
+Each phase has a cam whose lobe placement around the shaft determines
+when in the rotation that phase fires. The crank-turns-per-transition
+ratio is a mechanism-design choice: one revolution if every phase fits
+in its angular budget, more if recock or another phase needs more
+travel. Phase ordering does not assume a fixed number of revolutions.
 
-1. **Read / row-select.** The slider's position under the head, together
-   with the state register, selects which row of the transition plate's
-   pegs the output arms see. Because symbol = slider position
-   (`docs/DESIGN_INFLUENCES.md`), this is one mechanical operation, not
-   two.
+1. **Cell-select.** Two independent mechanical selections position the
+   transition cylinder's readout. For column-select, the gantry's read
+   arm is released and sweeps until stopped by the current cell's
+   slider; the read arm's stop drives the cylinder's rotation through
+   gearing, landing the selected facet (one of 6) under the readout.
+   For row-select, the state register's slider position translates the
+   readout assembly along the cylinder axis to the selected row (one
+   of 4). Both are direct couplings — no encoding step — so each
+   selection is one mechanical operation. The two may happen in either
+   order or in parallel; sequencing is a drive-design choice.
 
-2. **Lock-disengage.** The head mechanically deflects the cell-resident
-   flexure to free the slider for writing. From this point until
-   lock-reengage, the slider is unlatched; the cycle must not stop here.
+2. **Lock-disengage.** The head's wedge deflects the cell's pawl bar
+   away from the slider's rack to free the slider for writing. From
+   this point until lock-reengage, the slider is unlatched; the cycle
+   must not stop here.
 
 3. **Write-release.** The writer arm's release latch is tripped; the
    spring-loaded arm begins traveling toward the slider, dragging the
-   slider toward the symbol position selected by the transition plate.
+   slider toward the symbol position selected by the transition cylinder.
 
 4. **Write-travel.** The writer arm travels until it hits the peg at the
-   target position. The slider is now at the new symbol's detent.
+   target position. The slider is now at the new symbol's rest position.
 
-5. **Lock-reengage.** The head withdraws its disengagement input; the
-   cell's flexure restores the lock to engaged. The slider is now
+5. **Lock-reengage.** The head withdraws the wedge; the cell's pawl bar
+   springs back into the slider's rack and locks it. The slider is now
    latched at the new symbol.
 
 6. **Move.** The gantry advances one cell in the direction the transition
-   plate's direction-arm encodes.
+   cylinder's direction-arm encodes.
 
-7. **State-update.** The state register advances to the new state encoded
-   by the transition plate's state-arm.
+7. **State-update.** A wedge cam on the drive shaft deflects the state
+   register's pawl bar to disengage its lock; the state-arm then drives
+   the register's slider to the new state encoded by the transition
+   cylinder's state-arm; the wedge cam withdraws and the pawl bar
+   re-engages the rack at the new tooth. The wedge cam's lobe leads
+   the state-arm's lobe so the lock is open before the arm pulls and
+   stays open until the arm has settled.
 
 8. **Recock.** Every spring-loaded arm tripped this cycle is re-tensioned
    for the next cycle: writer arm, the three transition arms (symbol,
@@ -76,8 +90,8 @@ can comfortably crank, the design is reconsidered before printing.
 | Symbol arm spring potential energy               | TBD              |
 | Direction arm spring potential energy            | TBD              |
 | State arm spring potential energy                | TBD              |
-| Friction losses (slider, gantry, plate)          | TBD              |
-| State-register indexing torque                   | TBD              |
+| Friction losses (slider, gantry, cylinder)       | TBD              |
+| State-register lock-disengage flexure deflection | TBD              |
 | **Total per cycle**                              | **TBD**          |
 | **Operator comfort budget (one hand)**           | **TBD**          |
 
@@ -103,12 +117,15 @@ States that are *not* safe to stop at:
 - Between lock-disengage and lock-reengage (slider unlatched).
 - During write-travel (arm in flight; partial state).
 - During move (gantry between cells; per-cell detent not yet engaged).
-- During state-register indexing (state output is intermediate).
+- Between state-register lock-disengage and lock-reengage (state output is intermediate).
 
-If the drive's gear ratio is chosen so that one full crank revolution
-maps to one transition, the safe-stop state corresponds to the crank's
-home angle. If the ratio is N revolutions per transition, only the
-revolution that completes the cycle is a safe-stop window.
+Because phase ordering is cam-driven, every safe-stop state corresponds
+to a specific crank-angle range — the angles at which all cams are
+either at rest dwell or have completed their lobes. If one crank
+revolution maps to one transition, the canonical safe-stop is the
+crank's home angle. If N revolutions map to one transition, the
+safe-stop window is the angle range during the final revolution after
+all cams have completed.
 
 The safe-stop set may grow as the cycle is refined — for example, if
 recock is sequenced into a separate sub-cycle, a safe-stop between

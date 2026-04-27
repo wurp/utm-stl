@@ -33,7 +33,7 @@ excessive force overshoots and damages the peg or the arm; sloppy pivot
 introduces output error proportional to the slop divided by arm length.
 
 Used by: writer arm (drives the slider to the symbol-position selected by
-the transition plate), and the three transition arms (new symbol, head
+the transition cylinder), and the three transition arms (new symbol, head
 direction, new state).
 
 ## Flexure-returned latch
@@ -57,32 +57,143 @@ Failure modes: too thin and it cracks; too thick and the deflection force
 exceeds what the disengagement input can provide; printed across layer
 lines and it delaminates after a few cycles.
 
-Used by: the cell-resident lock that holds each slider in its current
-detent.
+Used by: the pawl bar in the rack-and-sprung-pawl-bar primitive is
+itself a flexure-returned latch — the bar's compliant pre-curve is the
+flexure, and the wedge input is the disengagement input.
 
 ## FDM detent
 
-A dimple on the moving body engages a sprung bump on the housing (or vice
-versa), giving a tactile "click" at each discrete position the moving
-body should hold.
+A dimple on the moving body engages a sprung bump on the housing (or
+vice versa), giving a tactile "click" at each discrete position the
+moving body should hold.
 
 Reach for it when a translating or rotating part needs to register at
-discrete positions without a separate locking mechanism, and the holding
-force only needs to resist incidental disturbance — not deliberate load.
-For deliberate locking, pair the detent with a flexure-returned latch.
+discrete positions and the holding force only needs to resist
+incidental disturbance. For deliberate locking against load, use the
+rack-and-sprung-pawl-bar primitive.
 
 Geometry: hemispherical or shallow-conical dimple sized to the bump's
-radius; bump itself is a printed compliant feature (a small cantilever or
-domed flexure) that deflects elastically as it crosses between dimples.
-Holding force is set by the bump's spring rate and the dimple depth.
-Pitch between dimples bounds the smallest distinguishable position.
+radius; bump itself is a printed compliant feature (a small cantilever
+or domed flexure) that deflects elastically as it crosses between
+dimples. Holding force is set by the bump's spring rate and the dimple
+depth. Pitch between dimples bounds the smallest distinguishable
+position.
 
-Failure modes: bump too stiff and the moving body won't translate without
-excessive force; too compliant and the detent doesn't hold; pitch too
-fine for the printer's resolution and adjacent dimples merge.
+Failure modes: bump too stiff and the moving body won't translate
+without excessive force; too compliant and the detent doesn't hold;
+pitch too fine for the printer's resolution and adjacent dimples
+merge.
 
-Used by: slider detents inside the cell housing; per-cell registration
-between the gantry carriage and the rail.
+Used by: per-cell registration between the gantry carriage and the
+rail (light registration between deliberate gantry moves; not load-
+bearing).
+
+## Rack and sprung pawl bar
+
+A rack of symmetric gear teeth on one edge of a translating slider
+engages a long pawl bar — itself a printed compliant flexure — that runs
+parallel to the slider's travel and is pre-curved so its rest shape
+presses into the rack. A wedge input deflects the pawl bar away from
+the rack to release the slider; on withdrawal, the bar springs back
+into engagement and locks the slider at whichever tooth it landed on.
+
+Reach for it when a translating part must hold at discrete positions
+against deliberate load, not just incidental disturbance. Tooth-on-tooth
+contact carries load in shear, which is much stronger than friction-
+based detent retention; the pawl bar being a flexure means engagement
+is the default state and there is no separate spring or loose part.
+
+Geometry: symmetric (isosceles-triangle) tooth profile so the lock
+holds equally against load from either direction along the slider's
+travel — asymmetric saw teeth allow the slider to creep one way under
+repeated load. Tooth pitch sets the position resolution: the slider's
+discrete rest positions are quantized to the pitch, so the spacing
+between intended positions must be an integer multiple of one tooth.
+At least three teeth should be engaged in any rest position so the
+load is distributed. Place the rack on the slider edge perpendicular
+to any expected lateral force (e.g. from a sweeping read arm), so the
+load is carried by the pawl teeth in shear rather than by the channel
+walls in friction. The pawl bar's flexure thickness, length, and print
+orientation set the engagement force and the wedge travel needed to
+release.
+
+Failure modes: asymmetric teeth — slider creeps one direction under
+repeated read-arm impact; flexure too thin — bar cracks or fails to
+re-engage; flexure too thick — wedge can't deflect it without
+excessive input force; pitch finer than the printer can resolve —
+adjacent teeth merge; fewer than ~3 teeth engaged — single-tooth
+shear failure under load.
+
+Used by: the slider in every slider cell (tape cells and the state
+register).
+
+## Print-flat-and-fold prism
+
+A polygonal prism (or any faceted-surface part) printed as a single
+flat strip of facets joined edge-to-edge, with shallow triangular
+V-grooves along each fold line. After printing, the strip folds along
+the V-grooves into the closed prism shape; the V-groove's two
+triangular faces meet flush at each edge, registering adjacent facets
+at the V-groove's complementary angle.
+
+Reach for it when a part needs flat polygonal facets at exact angles
+to one another, and the printer's accuracy across a curved or angled
+geometry is worse than its accuracy on a flat surface. The V-groove
+itself is the angular reference; the print's job is to deliver flat
+facets and accurately-cut grooves, both of which are FDM's strengths.
+
+Geometry: the strip prints flat with each facet as a flat panel and
+each fold line as a triangular V-cut whose total included angle
+equals 180° minus the desired exterior fold angle. For a regular
+hexagonal prism (60° exterior fold), V-grooves are 120° included.
+Cut depth must reach almost through the strip's thickness — a thin
+remaining web acts as the hinge while still printing as one solid
+part. Glue, snap features, or end-cap clips hold the closed prism
+shut once folded; the V-groove faces in compression hold the angle.
+
+Failure modes: web too thin and it tears during folding; web too
+thick and the fold won't close cleanly; V-groove angle wrong and
+adjacent facets meet with a gap or interfere; closed prism not
+held shut and it springs open under load.
+
+Used by: the transition cylinder (six facets, 60° folds, hexagonal
+prism).
+
+## Cam stack on a shaft
+
+A set of cams of differing lobe profiles, all keyed to one rotating
+shaft, each driving one mechanical event via a follower riding on its
+profile. Continuous shaft rotation produces a sequenced set of timed
+mechanical events whose ordering is set entirely by lobe placement
+around each cam.
+
+Reach for it when many events must be sequenced through one rotational
+input, the ordering is fixed at design time, and runtime state-machine
+logic (latches, interlocks) is unwanted. The shaft's angular position
+is the system's state; reading it tells you exactly which events have
+fired and which are pending.
+
+Geometry: each cam is a printed disc with one or more lobes whose
+radial profile defines the follower's displacement vs. crank angle.
+Lobe rise should be gradual enough that the follower tracks the
+profile without bouncing, and the dwell (constant-radius arc) at the
+top of the lobe sets how long the driven phase holds at peak. The
+cam disc bore press-fits or keys onto the shaft. Followers can be
+sliding (a flat foot riding the profile) or rolling (a small printed
+wheel on a pin); sliding is simpler to print but wears faster on
+plastic-on-plastic.
+
+Failure modes: lobe rise too steep — follower bounces off the cam
+under load; dwell too short — driven event under-completes;
+follower spring too weak — follower lifts off the cam during the
+return stroke; cams not phased correctly to one another — events
+fire in the wrong order; sliding follower wears a groove into the
+cam after thousands of cycles.
+
+Used by: the drive shaft, sequencing every phase of the transition
+cycle (cell-select rotation and translation, lock-disengage,
+write-release, write-travel, lock-reengage, move, state-update,
+recock).
 
 ## Print-in-place with clearance gap
 
